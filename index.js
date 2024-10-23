@@ -2,6 +2,7 @@ const { program } = require("commander");
 const http = require("http");
 const fs = require("fs").promises;
 const path = require("path");
+const superagent = require("superagent");
 
 program
   .requiredOption("-h, --host <host>")
@@ -32,23 +33,42 @@ fs.mkdir(cacheDir, { recursive: true })
     process.exit(1);
   });
 
-
+async function fetchImageFromHttpCat(statusCode) {
+  const url = `https://http.cat/${statusCode}`;
+  try {
+    const response = await superagent.get(url);
+    return response.body;
+  } catch (err) {
+    console.error(`Error fetching from https://http.cat`);
+    return null;
+  }
+}
 
 async function handleGet(req, res, statusCode) {
   const imagePath = path.join(cacheDir, `${statusCode}.jpg`);
 
   try {
     const image = await fs.readFile(imagePath);
-  
     res.writeHead(200, { "Content-Type": "image/jpeg" });
-    res.end(image);
+    return res.end(image);
   } catch (err) {
     if (err.code === "ENOENT") {
-      res.writeHead(404, { "Content-Type": "text/plain" });
-      res.end("Not Found");
+      const imageBuffer = await fetchImageFromHttpCat(statusCode);
+
+      if (imageBuffer) {
+        await fs.writeFile(imagePath, imageBuffer);
+        res.writeHead(200, { "Content-Type": "image/jpeg" });
+
+        return res.end(imageBuffer);
+      } else {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+
+        return res.end("Not Found");
+      }
     } else {
       res.writeHead(500, { "Content-Type": "text/plain" });
-      res.end("Internal Server Error");
+
+      return res.end("Internal Server Error");
     }
   }
 }
@@ -76,7 +96,7 @@ async function handleDelete(req, res, statusCode) {
 
   try {
     await fs.unlink(imagePath);
-    
+
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("Deleted");
   } catch (err) {
@@ -89,8 +109,6 @@ async function handleDelete(req, res, statusCode) {
     }
   }
 }
-
-
 
 const server = http.createServer(async (req, res) => {
   const urlParts = req.url.split("/");
