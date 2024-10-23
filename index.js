@@ -71,6 +71,25 @@ async function handlePut(req, res, statusCode) {
   });
 }
 
+async function handleDelete(req, res, statusCode) {
+  const imagePath = path.join(cacheDir, `${statusCode}.jpg`);
+
+  try {
+    await fs.unlink(imagePath);
+    
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("Deleted");
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("Not Found");
+    } else {
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("Internal Server Error");
+    }
+  }
+}
+
 
 
 const server = http.createServer(async (req, res) => {
@@ -88,6 +107,9 @@ const server = http.createServer(async (req, res) => {
       break;
     case "PUT":
       await handlePut(req, res, statusCode);
+      break;
+    case "DELETE":
+      await handleDelete(req, res, statusCode);
       break;
     default:
       res.writeHead(405, { "Content-Type": "text/plain" });
