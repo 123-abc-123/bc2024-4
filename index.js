@@ -53,6 +53,25 @@ async function handleGet(req, res, statusCode) {
   }
 }
 
+async function handlePut(req, res, statusCode) {
+  const imagePath = path.join(cacheDir, `${statusCode}.jpg`);
+  const chunks = [];
+
+  req.on("data", (chunk) => chunks.push(chunk));
+  req.on("end", async () => {
+    const imageBuffer = Buffer.concat(chunks);
+    try {
+      await fs.writeFile(imagePath, imageBuffer);
+      res.writeHead(201, { "Content-Type": "text/plain" });
+      res.end("Created");
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("Internal Server Error");
+    }
+  });
+}
+
+
 
 const server = http.createServer(async (req, res) => {
   const urlParts = req.url.split("/");
@@ -66,6 +85,9 @@ const server = http.createServer(async (req, res) => {
   switch (req.method) {
     case "GET":
       await handleGet(req, res, statusCode);
+      break;
+    case "PUT":
+      await handlePut(req, res, statusCode);
       break;
     default:
       res.writeHead(405, { "Content-Type": "text/plain" });
